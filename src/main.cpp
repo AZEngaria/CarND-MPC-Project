@@ -95,26 +95,30 @@ int main() {
 
           //Display the MPC predicted trajectory 
           
-          vector<double> transformed_x_vals;
-          vector<double> transformed_y_vals;
+          Eigen::VectorXd transformed_x_vals(ptsx.size());
+          Eigen::VectorXd transformed_y_vals(ptsy.size());
           double x_transformed = 0;
           double y_transformed = 0;
-          for(int i=0; i < ptsx.size(); i++){
-              double x_old = ptsx[i] - x;
-              double y_old = ptsy[i] - y;
-              x_transformed = x_old *  cos(psi) - y_old * sin(psi);
-              y_transformed = x_old *  sin(psi) + y_old * cos(psi);
-              transformed_x_vals.push_back(x_transformed);
-              transformed_y_vals.push_back(y_transformed);
+          for(unsigned int i=0; i < ptsx.size(); i++){
+              double x_old = ptsx[i] - px;
+              double y_old = ptsy[i] - py;
+              x_transformed = x_old * cos(psi) + y_old * sin(psi);
+              y_transformed = y_old * cos(psi) - x_old * sin(psi);
+              transformed_x_vals[i] = x_transformed;
+              transformed_y_vals[i] = y_transformed;
           }
+		  
+          double x_car = 0.0;
+          double y_car = 0.0;
+		  double psi_car = 0.0;
+		  
+          auto coeffs = polyfit(transformed_x_vals, transformed_y_vals,3);
           
-          Eigen::vectoorXd coeffs = polyfit(mpc_x_vals, mpc_y_vals,3);
-          
-          double cte = y - polyeval(coeffs, x);
-          double epsi = psi - atan((3 * coeffs[3] * x * x) + (2 * coeffs[2] * x) + (coeffs[1]));
+          double cte = polyeval(coeffs, x_car) - y_car;
+          double epsi = psi_car - atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
-          state << x, y, psi, v, cte, epsi;
+          state << x_car, y_car, psi_car, v, cte, epsi;
           
           auto vars = mpc.Solve(state, coeffs);
 
@@ -127,30 +131,20 @@ int main() {
           */
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
-
-          int index = 0;
-          int size_of_x = vars[index++];          
-          
-          while(index < size_of_x){
-              mpc_x_vals.push_back(vars[index]);           
-              index++;
-          }
-          int size_of_y = vars[index++];
-          i = 0;
-          while(i++ < size_of_y){
-              mpc_y_vals.push_back(vars[index]);           
-              index++;
-          }         
-            
-          double steer_value = vars[index++] / deg2rad(25);
-          double throttle_value = vars[index];
-
+		  
+          double steer_value = vars[0];
+          double throttle_value = vars[1];
+		
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = throttle_value;       
-
+          msgJson["throttle"] = throttle_value;  
+		  
+		  for(unsigned int i=2; i < vars.size(); i++){
+				mpc_x_vals.push_back(vars[i++]);
+				mpc_y_vals.push_back(vars[i]);
+		  }
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
@@ -180,7 +174,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          //this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
