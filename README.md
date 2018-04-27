@@ -29,6 +29,7 @@ The waypoints are preprocessed by transforming them to the vehicle's perspective
 
 ``
 x_transformed = x_old * cos(psi) + y_old * sin(psi);``
+
 ``y_transformed = y_old * cos(psi) - x_old * sin(psi);``
 
 where is trans_x and trans_y are translated points i.e. (x0 - xp) & (y0 - yp) denoting (x0,y0) as position of observation(waypoint) and (xp,yp) as position of the car both in world/map coordinates.
